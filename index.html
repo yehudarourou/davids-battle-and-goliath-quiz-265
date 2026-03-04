@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>חידון קרב דוד וגליית</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Assistant', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+        }
+
+        .answer-card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .answer-card:hover {
+            transform: translateY(-3px);
+            background: rgba(255, 255, 255, 0.4);
+        }
+
+        .logo-fixed {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            width: 80px;
+            z-index: 50;
+        }
+
+        .btn-primary {
+            background: linear-gradient(90deg, #00d2ff 0%, #3a7bd5 100%);
+            transition: transform 0.2s;
+        }
+
+        .btn-primary:hover {
+            transform: scale(1.05);
+        }
+
+        .progress-bar {
+            transition: width 0.5s ease-in-out;
+        }
+
+        .review-correct { border: 2px solid #10b981; background: rgba(16, 185, 129, 0.1); }
+        .review-wrong { border: 2px solid #ef4444; background: rgba(239, 68, 68, 0.1); }
+        .review-correction { border: 2px dashed #10b981; background: rgba(16, 185, 129, 0.05); }
+
+        footer {
+            margin-top: auto;
+            padding: 1rem;
+            text-align: center;
+            color: white;
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Logo -->
+    <img src="logo.png" alt="Logo" class="logo-fixed" onerror="this.src='https://via.placeholder.com/80?text=Logo'">
+
+    <div id="app" class="flex-grow flex items-center justify-center p-4">
+        <!-- Main Container -->
+        <div id="game-container" class="w-full max-w-2xl glass rounded-3xl p-8 text-white text-center">
+            
+            <!-- Start Screen -->
+            <div id="start-screen">
+                <div class="mb-6 rounded-2xl overflow-hidden shadow-xl">
+                    <img src="https://images.unsplash.com/photo-1590076214667-c0f33b98c442?auto=format&fit=crop&q=80&w=800" alt="David and Goliath" class="w-full h-48 object-cover">
+                </div>
+                <h1 class="text-4xl font-bold mb-4">חידון קרב דוד וגליית</h1>
+                <p class="mb-8 text-lg">מוכנים לבדוק את הידע שלכם על אחד הקרבות המפורסמים בהיסטוריה?</p>
+                <button onclick="startGame()" class="btn-primary text-white font-bold py-3 px-10 rounded-full text-xl shadow-lg">התחל</button>
+            </div>
+
+            <!-- Quiz Screen -->
+            <div id="quiz-screen" class="hidden">
+                <div class="flex justify-between items-center mb-4">
+                    <span id="question-counter" class="text-sm font-semibold">שאלה 1 מתוך 10</span>
+                    <span id="score-display" class="text-sm font-semibold">ניקוד: 0</span>
+                </div>
+                <!-- Progress Bar -->
+                <div class="w-full bg-white/20 rounded-full h-2.5 mb-8">
+                    <div id="progress-fill" class="progress-bar bg-blue-400 h-2.5 rounded-full" style="width: 0%"></div>
+                </div>
+
+                <div class="mb-8">
+                    <h2 id="question-text" class="text-2xl font-bold mb-6">טוען שאלה...</h2>
+                </div>
+
+                <div id="answers-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Answers will be injected here -->
+                </div>
+            </div>
+
+            <!-- Result Screen -->
+            <div id="result-screen" class="hidden">
+                <div id="result-capture-area" class="p-6">
+                    <div id="trophy-icon" class="hidden mb-4 text-6xl">🏆</div>
+                    <h2 class="text-3xl font-bold mb-2">כל הכבוד!</h2>
+                    <p class="text-xl mb-4">הציון שלך הוא:</p>
+                    <div id="final-score" class="text-6xl font-black mb-6">0</div>
+                    <p id="feedback-message" class="text-lg mb-8 italic font-semibold"></p>
+                </div>
+                
+                <div class="flex flex-wrap justify-center gap-4">
+                    <button onclick="startGame()" class="bg-white/20 hover:bg-white/30 border border-white/50 px-6 py-2 rounded-xl">נסה שוב</button>
+                    <button onclick="saveResult()" class="bg-white/20 hover:bg-white/30 border border-white/50 px-6 py-2 rounded-xl">שמור תוצאה</button>
+                    <button onclick="openReview()" class="bg-blue-500 hover:bg-blue-600 px-6 py-2 rounded-xl font-bold">צפה בתשובות</button>
+                </div>
+            </div>
+
+            <!-- Review Mode -->
+            <div id="review-screen" class="hidden">
+                <h2 class="text-2xl font-bold mb-4">סיכום תשובות</h2>
+                <div id="review-card" class="bg-white/10 rounded-2xl p-6 mb-6 text-right relative">
+                    <span id="review-point-badge" class="absolute top-4 left-4 text-xs font-bold px-2 py-1 rounded bg-black/30"></span>
+                    <p id="review-question" class="text-xl font-bold mb-4"></p>
+                    <div id="review-options" class="space-y-3"></div>
+                </div>
+                <div class="flex justify-between items-center">
+                    <button onclick="prevReview()" id="prev-btn" class="bg-white/20 p-2 rounded-full disabled:opacity-30">◀ הקודם</button>
+                    <span id="review-index">1 / 10</span>
+                    <button onclick="nextReview()" id="next-btn" class="bg-white/20 p-2 rounded-full disabled:opacity-30">הבא ▶</button>
+                </div>
+                <button onclick="closeReview()" class="mt-8 text-sm underline opacity-70">חזור למסך הסיום</button>
+            </div>
+
+        </div>
+    </div>
+
+    <footer>
+        מו"פ אמית. מקיף אמי"ת ב"ש &copy; כל הזכויות שמורות
+    </footer>
+
+    <script>
+        // שאלות החידון
+        const quizData = [
+            {
+                q: "באיזה עמק נערך הקרב בין ישראל לפלישתים?",
+                a: ["עמק האלה", "עמק יזרעאל", "עמק איילון", "עמק דותן"],
+                correct: 0
+            },
+            {
+                q: "כמה זמן יצא גליית והתייצב מול מערכות ישראל?",
+                a: ["40 יום", "7 ימים", "30 יום", "10 ימים"],
+                correct: 0
+            },
+            {
+                q: "מה שלח ישי ביד דוד לאחיו הלוחמים?",
+                a: ["עשרה חריצי גבינה ואיפת קלי", "לחם ויין בלבד", "בגדים להחלפה", "נשק ומגינים"],
+                correct: 0
+            },
+            {
+                q: "מה הבטיח שאול המלך לאיש אשר יכה את גליית?",
+                a: ["עושר רב, את בתו לאישה ופטור ממיסים לבית אביו", "שלטון על מחצית המלכות", "את הכתר שלו", "מינוי לשר הצבא מיד"],
+                correct: 0
+            },
+            {
+                q: "מדוע סירב דוד ללבוש את מדי שאול?",
+                a: ["כי לא היה רגיל בהם וזה הפריע לו ללכת", "כי הם היו קטנים עליו", "כי הוא פחד מהעין הרע", "כי הוא העדיף ללכת עירום"],
+                correct: 0
+            },
+            {
+                q: "באיזה כלי נשק השתמש דוד כדי להכריע את גליית?",
+                a: ["קלע וחמישה חלוקי נחלים", "חנית וחרב", "קשת וחיצים", "מגן וכידון"],
+                correct: 0
+            },
+            {
+                q: "מה אמר דוד לגליית לפני הקרב?",
+                a: ["'אתה בא אלי בחרב ובחנית... ואנכי בא אליך בשם ה' צבאות'", "'היום אהרוג אותך ואהיה למלך'", "'אני חזק ממך בהרבה'", "'פלישתי ערל, דמך בראשך'"],
+                correct: 0
+            },
+            {
+                q: "היכן פגעה האבן בגליית?",
+                a: ["במצחו", "בלבו", "בצווארו", "בידו"],
+                correct: 0
+            },
+            {
+                q: "מה עשה דוד לאחר שגליית נפל ארצה?",
+                a: ["כרת את ראשו בעזרת חרבו של גליית", "ברח מהמקום", "קרא לעזרה", "התפלל לה'"],
+                correct: 0
+            },
+            {
+                q: "מה עשו הפלישתים כשראו כי מת גיבורם?",
+                a: ["נסו על נפשם", "נכנעו מיד", "הסתערו על ישראל", "ביקשו שלום"],
+                correct: 0
+            }
+        ];
+
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let userAnswers = [];
+        let shuffledQuestions = [];
+        let reviewIndex = 0;
+
+        const screens = {
+            start: document.getElementById('start-screen'),
+            quiz: document.getElementById('quiz-screen'),
+            result: document.getElementById('result-screen'),
+            review: document.getElementById('review-screen')
+        };
+
+        function showScreen(screenKey) {
+            Object.values(screens).forEach(s => s.classList.add('hidden'));
+            screens[screenKey].classList.remove('hidden');
+        }
+
+        function shuffle(array) {
+            return array.sort(() => Math.random() - 0.5);
+        }
+
+        function startGame() {
+            score = 0;
+            currentQuestionIndex = 0;
+            userAnswers = [];
+            
+            // ערבוב שאלות
+            shuffledQuestions = shuffle([...quizData]).map(q => {
+                // ערבוב תשובות לכל שאלה תוך שמירה על הנכונה
+                const originalCorrectText = q.a[q.correct];
+                const shuffledOptions = shuffle([...q.a]);
+                const newCorrectIndex = shuffledOptions.indexOf(originalCorrectText);
+                return {
+                    q: q.q,
+                    a: shuffledOptions,
+                    correct: newCorrectIndex
+                };
+            });
+
+            showScreen('quiz');
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            const currentQuestion = shuffledQuestions[currentQuestionIndex];
+            document.getElementById('question-text').innerText = currentQuestion.q;
+            document.getElementById('question-counter').innerText = `שאלה ${currentQuestionIndex + 1} מתוך ${shuffledQuestions.length}`;
+            document.getElementById('score-display').innerText = `ניקוד: ${score}`;
+            
+            const progress = ((currentQuestionIndex) / shuffledQuestions.length) * 100;
+            document.getElementById('progress-fill').style.width = `${progress}%`;
+
+            const answersGrid = document.getElementById('answers-grid');
+            answersGrid.innerHTML = '';
+
+            const prefixes = ['א', 'ב', 'ג', 'ד'];
+            currentQuestion.a.forEach((option, index) => {
+                const btn = document.createElement('div');
+                btn.className = "answer-card glass rounded-xl p-4 text-right font-medium text-lg flex items-center";
+                btn.innerHTML = `
+                    <span class="bg-white/30 w-8 h-8 rounded-full flex items-center justify-center ml-3 font-bold">${prefixes[index]}</span>
+                    <span>${option}</span>
+                `;
+                btn.onclick = () => handleAnswer(index);
+                answersGrid.appendChild(btn);
+            });
+        }
+
+        function handleAnswer(selectedIndex) {
+            const currentQuestion = shuffledQuestions[currentQuestionIndex];
+            const isCorrect = selectedIndex === currentQuestion.correct;
+            
+            userAnswers.push(selectedIndex);
+            if (isCorrect) score += 10;
+
+            currentQuestionIndex++;
+            if (currentQuestionIndex < shuffledQuestions.length) {
+                loadQuestion();
+            } else {
+                finishQuiz();
+            }
+        }
+
+        function finishQuiz() {
+            showScreen('result');
+            const finalScoreElement = document.getElementById('final-score');
+            const feedbackElement = document.getElementById('feedback-message');
+            const trophy = document.getElementById('trophy-icon');
+            
+            finalScoreElement.innerText = score;
+            
+            // רמזור ומשוב
+            if (score >= 80) {
+                finalScoreElement.style.color = '#10b981'; // ירוק
+                feedbackElement.innerText = "מדהים! הפגנת ידע של גיבור אמיתי. כל הכבוד!";
+                trophy.classList.remove('hidden');
+                confetti({
+                    particleCount: 150,
+                    spread: 70,
+                    origin: { y: 0.6 }
+                });
+            } else if (score >= 50) {
+                finalScoreElement.style.color = '#f59e0b'; // כתום
+                feedbackElement.innerText = "עבודה טובה! אתה בדרך הנכונה, עוד קצת חזרה ותהיה אלוף.";
+                trophy.classList.add('hidden');
+            } else {
+                finalScoreElement.style.color = '#ef4444'; // אדום
+                feedbackElement.innerText = "לא נורא, תמיד אפשר לנסות שוב וללמוד יותר על דוד וגליית.";
+                trophy.classList.add('hidden');
+            }
+        }
+
+        function openReview() {
+            reviewIndex = 0;
+            updateReviewCard();
+            showScreen('review');
+        }
+
+        function updateReviewCard() {
+            const q = shuffledQuestions[reviewIndex];
+            const userAns = userAnswers[reviewIndex];
+            const isCorrect = userAns === q.correct;
+            
+            document.getElementById('review-question').innerText = q.q;
+            document.getElementById('review-index').innerText = `${reviewIndex + 1} / ${shuffledQuestions.length}`;
+            document.getElementById('review-point-badge').innerText = isCorrect ? "10 נק'" : "0 נק'";
+            document.getElementById('review-point-badge').className = `absolute top-4 left-4 text-xs font-bold px-2 py-1 rounded ${isCorrect ? 'bg-green-600' : 'bg-red-600'}`;
+
+            const optionsContainer = document.getElementById('review-options');
+            optionsContainer.innerHTML = '';
+            
+            const prefixes = ['א', 'ב', 'ג', 'ד'];
+            q.a.forEach((opt, idx) => {
+                const optDiv = document.createElement('div');
+                optDiv.className = "p-3 rounded-xl border border-white/20 text-right text-sm flex items-center";
+                
+                if (idx === q.correct) {
+                    optDiv.classList.add('review-correct');
+                    if (idx !== userAns) optDiv.classList.add('review-correction');
+                } else if (idx === userAns) {
+                    optDiv.classList.add('review-wrong');
+                }
+
+                optDiv.innerHTML = `
+                    <span class="font-bold ml-2">${prefixes[idx]}.</span>
+                    <span>${opt}</span>
+                    ${idx === q.correct ? '<span class="mr-auto">✅</span>' : ''}
+                    ${idx === userAns && idx !== q.correct ? '<span class="mr-auto">❌</span>' : ''}
+                `;
+                optionsContainer.appendChild(optDiv);
+            });
+
+            document.getElementById('prev-btn').disabled = reviewIndex === 0;
+            document.getElementById('next-btn').disabled = reviewIndex === shuffledQuestions.length - 1;
+        }
+
+        function nextReview() {
+            if (reviewIndex < shuffledQuestions.length - 1) {
+                reviewIndex++;
+                updateReviewCard();
+            }
+        }
+
+        function prevReview() {
+            if (reviewIndex > 0) {
+                reviewIndex--;
+                updateReviewCard();
+            }
+        }
+
+        function closeReview() {
+            showScreen('result');
+        }
+
+        async function saveResult() {
+            const element = document.getElementById('result-capture-area');
+            const canvas = await html2canvas(element, {
+                backgroundColor: '#764ba2',
+                borderRadius: 20
+            });
+            const link = document.createElement('a');
+            link.download = `תוצאת_חידון_דוד_וגליית_${score}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+
+    </script>
+</body>
+</html>
